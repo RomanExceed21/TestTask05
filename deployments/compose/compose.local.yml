@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  meals_db_service:
+    container_name: ${PG_SRV_CONT_NAME}
+    image: postgres:12
+    env_file:
+      - ../../environments/.env.${APP_ENV}
+    environment:
+      PGDATA: ${PG_SRV_VLM_CONT_PATH}
+    volumes:
+      - ../../development/${PG_SRV_VLM_HOST_PATH}:/${PG_SRV_VLM_CONT_PATH}
+    ports:
+      - "${PG_SRV_HOST_PORT}:${PG_SRV_CONT_PORT}"
+    networks:
+      - meals-network
+    restart: unless-stopped
+
+  meals_backend_service:
+    container_name: ${API_SRV_CONT_NAME}
+    image: ${API_SRV_IMG_NAME}
+    depends_on:
+      - meals_db_service
+    build:
+      context: ../..
+      dockerfile: ./deployments/dockerfiles/${APP_ENV}.dockerfile
+    command: sh -c "sleep 5 && [[ $APP_ENV = local ]] && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all && npm run start:watch"
+    env_file:
+      - ../../environments/.env.${APP_ENV}
+    ports:
+      - ${API_SRV_HOST_PORT}:${API_SRV_CONT_PORT}
+    volumes:
+      - ../../:/usr/src/app
+    networks:
+      - meals-network
+    restart: unless-stopped
+
+networks:
+  meals-network:
